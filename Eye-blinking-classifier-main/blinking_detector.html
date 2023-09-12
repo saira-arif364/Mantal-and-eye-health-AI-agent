@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Eye blink detector</title>
+    <link href="output.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    <div class="p-20 bg-gradient-to-t from-blue-400 to-white flex flex-col justify-center items-center w-screen h-screen">
+        <button onclick="location.href='index.html'" class="mb-5 px-3 py-1 bg-green-500 hover:bg-green-600 rounded-lg">Back to Home</button>
+        <div class="flex justify-between items-center">
+            <div>
+                <div class='text-7xl font-bold flex justify-center items-center text-transparent bg-clip-text bg-gradient-to-l from-red-500 to bg-orange-300'>Eye Blink Detector</div>
+                <div class="my-10">
+                    <button class="px-2 py-1 bg-blue-400 w-40 rounded-lg border-2 border-blue-500 hover:bg-green-500 text-white text-lg" type="button" onclick="init2()">Start</button>
+                </div>
+                <div id="label-container" class="text-2xl font-light text-white"></div>
+                <div id="blinkCounter" class="text-white text-5xl font-bold">Blinks: 0</div>
+                <button onclick="reset()" class="mt-5 px-3 py-1 bg-blue-400 hover:bg-blue-600 rounded-lg">Reset</button>
+            </div>
+            <div class="h-full">
+                <div id="webcam-container" class="border-8 border-blue-500 rounded-lg"></div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+        <script type="text/javascript">
+            const URL = "https://teachablemachine.withgoogle.com/models/qbd76VIza/";
+
+            let model, webcam, labelContainer, maxPredictions;
+            let blinkCounter = 0;
+            let consecutiveBlinkFrames = 0;
+            let startTime;
+
+            async function init1() {
+                const modelURL = URL + "model.json";
+                const metadataURL = URL + "metadata.json";
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+
+                const flip = true;
+                webcam = new tmImage.Webcam(500, 500, flip);
+                await webcam.setup();
+            }
+
+            async function init2() {
+                await webcam.play();
+                window.requestAnimationFrame(loop);
+                document.getElementById("webcam-container").appendChild(webcam.canvas);
+                labelContainer = document.getElementById("label-container");
+                for (let i = 0; i < maxPredictions; i++) {
+                    labelContainer.appendChild(document.createElement("div"));
+                }
+
+                startTime = Date.now();
+                setInterval(checkTimer, 1000);
+            }
+
+            function checkTimer() {
+                if (Date.now() - startTime > 60000) {
+                    alert("One minute is over! Blinks: " + blinkCounter);
+                    reset();
+                }
+            }
+
+            async function loop() {
+                webcam.update();
+                await predict();
+                window.requestAnimationFrame(loop);
+            }
+
+            let blinkInProgress = false;
+
+            async function predict() {
+                const prediction = await model.predict(webcam.canvas);
+                labelContainer.childNodes[0].innerHTML = "Probability that eyes are open : " + prediction[0].probability.toFixed(2);
+
+                if (blinkInProgress && prediction[0].probability > 0.5) {
+                    blinkInProgress = false;
+                }
+
+                if (!blinkInProgress && prediction[1].probability > 0.5) {
+                    consecutiveBlinkFrames++;
+                    if (consecutiveBlinkFrames >= 2) {
+                        blinkCounter++;
+                        document.getElementById("blinkCounter").innerHTML = "Blinks: " + blinkCounter;
+                        consecutiveBlinkFrames = 0;
+                        blinkInProgress = true;
+                    }
+                } else {
+                    consecutiveBlinkFrames = 0;
+                }
+            }
+
+            function reset() {
+                blinkCounter = 0;
+                consecutiveBlinkFrames = 0;
+                document.getElementById("blinkCounter").innerHTML = "Blinks: 0";
+                startTime = Date.now();
+            }
+
+            init1();
+        </script>
+    </div>
+</body>
+</html>
